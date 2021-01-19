@@ -26,13 +26,13 @@ INSTALLATION:
 
 - To install, simply include the "template_engine.php" file in your application.
 - Documentation on how to set your engine up is provided below. 
-- Note that specific paths are present for language variables, template folders, and cache directories. Edit these as needed in the configuration settings within the template.php file. 
+- Edit configuration paths in template_engine.php as needed. (See below)
 
   - Default Template Directory: templates/[templatename].html
   - Default Language Directory: languages/[locale]/lang_file.lang.php
   - Default Cache directory: templates/cache/template.php (this is handled internally, simply create the directory and you're done!)
 
-* For languages, see the $templates->lang_load() documentation. A sample language file is provided. 
+   * For languages, see the $templates->lang_load() documentation. A sample language file is provided. 
    - you will need to explicitely call $templates->lang_load("filename") in order to load a new language file for use. 
    - This was done so that larger applications don't require every language variable to be loaded for every page. This can result in lower memory usage and faster load times. 
 

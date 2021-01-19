@@ -1,6 +1,6 @@
 <?php 
 
-// LICENSE: LGNU GPL, Version 3. https://www.gnu.org/licenses/lgpl-3.0.en.html
+// LICENSE: GNU LGPL, Version 3. https://www.gnu.org/licenses/lgpl-3.0.en.html
 
 class template_engine {
     public $bindings = array(); 
