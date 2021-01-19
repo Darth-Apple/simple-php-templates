@@ -6,7 +6,7 @@ class template_engine {
     public $lang = array();
     private $locale; 
 
-    private $cachePath = "templates/Cache/";
+    private $cachePath = "templates/cache/";
     private $templatePath = "templates/";
     private $enable_cache = TRUE; 
 
