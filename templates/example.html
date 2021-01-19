@@ -1,11 +1,36 @@
 <html>
-    <head>
-        <title> EXAMPLE TEMPLATE</title>
-    </head>
-<body>
-    <strong>EXAMPLE TEMPLATE: </strong>[@title]<br />
-    * See documentation for setup/installation instructions. <br />
-    <i>License: LGPL, V3. </i>
+<head>
+<title> [@title] </title>
+</head>
 
+<body>
+
+<strong>[@lang:title] - [@title] </strong><br />
+A language variable: [@lang:my_language_string] <br />
+
+<hr>
+<strong>TESTING LOOPS</strong><br />
+[@loop: people as person]
+    Person's name is [@person:name], age is [@person:age]<br />
+[/loop] <br />
+
+<hr>
+<strong> TESTING IF/ELSE statements </strong><br />
+[@if: $true == true]
+    In IF statement. Will display if true == true. 
+[@elif: $true == false]
+    In ELIF (else if) - won't display because true != false. 
+[@else]
+    In ELSE. Won't display unless one of the above conditions is modified. 
+[/if] 
+<br /><br />
+
+<hr>
+<strong>TESTING escaping</strong><br />
+Escaped: [@html_var] <br />
+Unescaped: [$html_var] <br />
+<br />
+<br />
+<i>LICENSE: GNU LGPL, Version 3. </i>
 </body>
 </html>
