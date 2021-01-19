@@ -36,70 +36,6 @@ INSTALLATION:
    - you will need to explicitely call $templates->lang_load("filename") in order to load a new language file for use. 
    - This was done so that larger applications don't require every language variable to be loaded for every page. This can result in lower memory usage and faster load times. 
 
--------------------------------
-index.php
--------------------------------
-<?php
-$templates = new template_engine(“english”); 
-$templates->load_lang(“core”); // Loads languages/english/core.lang.php
-
-// Set some variables
-$templates->set(“page_title”, “My Template Tester”);
-
-$people = array(
-	array(“name” => “Steve”, “Age” => 23),
-	array(“name” => “Emily”, “Age” => 21)
-);
-$templates->set(“people”, $people);
-
-$templates->set("true", true);
-$templates->set("false", false);
-
-$templates->set("html_var", "<b><u><i>FORMATTED TEXT</i></u></b>");
-
-$templates->render(“my_template_file”);
-?>
-
------------------------------------
-templates/my_template_file.html: 
------------------------------------
-
-<html>
-<head>
-<title> [@page_title] </title>
-</head>
-
-<body>
-
-<strong>[@lang:title] - [@page_title] </strong><br />
-A language variable: [@lang:my_language_string] <br />
-
-<hr>
-<strong>TESTING LOOPS</strong><br />
-[@loop: people as person]
-    Person's name is [@person:name], age is [@person:age]<br />
-[/loop] <br />
-
-<hr>
-<strong> TESTING IF/ELSE statements </strong><br />
-[@if: $true == true]
-    In IF statement. Will display if true == true. 
-[@elif: $true == false]
-    In ELIF (else if) - won't display because true != false. 
-[@else]
-    In ELSE. Won't display unless one of the above conditions is modified. 
-[/if] 
-<br /><br />
-
-<hr>
-<strong>TESTING escaping</strong><br />
-Escaped: [@html_var] <br />
-Unescaped: [$html_var] <br />
-<br />
-
-</body>
-</html>
-
 ------------------------------------------------------
 TEMPLATE SYNTAX: 
 ------------------------------------------------------
@@ -196,6 +132,74 @@ TEMPLATE CACHE:
  - Because the cache prevents a costly recompilation on every page load, it is strongly recommended to leave the cache enabled. It can be disabled by setting the $enable_cache flag to "false" at the beginning of the template.php class file. 
 
  - parse_raw() never caches templates. Because of this, it is recommended to use parse() and render() when possible. 
+
+
+
+----------------------------------------------------------
+EXAMPLE - index.php
+----------------------------------------------------------
+<?php
+$templates = new template_engine(“english”); 
+$templates->load_lang(“core”); // Loads languages/english/core.lang.php
+
+// Set some variables
+$templates->set(“page_title”, “My Template Tester”);
+
+$people = array(
+	array(“name” => “Steve”, “Age” => 23),
+	array(“name” => “Emily”, “Age” => 21)
+);
+$templates->set(“people”, $people);
+
+$templates->set("true", true);
+$templates->set("false", false);
+
+$templates->set("html_var", "<b><u><i>FORMATTED TEXT</i></u></b>");
+
+$templates->render(“my_template_file”);
+?>
+
+------------------------------------------------------------
+EXAMPLE - templates/my_template_file.html: 
+------------------------------------------------------------
+
+<html>
+<head>
+<title> [@page_title] </title>
+</head>
+
+<body>
+
+<strong>[@lang:title] - [@page_title] </strong><br />
+A language variable: [@lang:my_language_string] <br />
+
+<hr>
+<strong>TESTING LOOPS</strong><br />
+[@loop: people as person]
+    Person's name is [@person:name], age is [@person:age]<br />
+[/loop] <br />
+
+<hr>
+<strong> TESTING IF/ELSE statements </strong><br />
+[@if: $true == true]
+    In IF statement. Will display if true == true. 
+[@elif: $true == false]
+    In ELIF (else if) - won't display because true != false. 
+[@else]
+    In ELSE. Won't display unless one of the above conditions is modified. 
+[/if] 
+<br /><br />
+
+<hr>
+<strong>TESTING escaping</strong><br />
+Escaped: [@html_var] <br />
+Unescaped: [$html_var] <br />
+<br />
+
+</body>
+</html>
+
+
 
 ----------------------------------------------------------
 LICENSE: 
