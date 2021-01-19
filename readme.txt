@@ -1,5 +1,6 @@
 SIMPLE TEMPLATE ENGINE 
 LICENSE: GNU LGPL, Version 3 (message if you need a different license)
+VERSION: BETA (use at your own risk)
 
 
 ----------------------------------------------------------------------
