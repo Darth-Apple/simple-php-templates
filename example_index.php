@@ -1,6 +1,6 @@
 <?php
 // License: GNU LGPL, Version 3. 
-require("template.php");
+require("template_engine.php");
 $templates = new template_engine(“english”); 
 $templates->load_lang(“core”); // Loads languages/english/core.lang.php
 

@@ -18,14 +18,23 @@ This is an extremely lightweight template engine that allows your application’
  - Load nested templates with [@template:mytemplate] tags. 
  - Clean, simple syntax. 
 
-This template engine is much more lightweight than alternative engines, and is packed with features for its size. This engine is ideal for small, simple projects that need a capable, secure, and fast template engine. Installation is quick and easy, and the overhead is minimal.
+This engine is ideal for small, simple projects that need a capable, secure, and fast template engine. Installation is quick and easy, and the overhead is minimal.
 
 ----------------------------------------------------------------------
 INSTALLATION: 
 ----------------------------------------------------------------------
 
-- Installation is as simple as including the template.php file included with this repository. Documentation on how to set your engine up is provided below. 
+- To install, simply include the "template_engine.php" file in your application.
+- Documentation on how to set your engine up is provided below. 
 - Note that specific paths are present for language variables, template folders, and cache directories. Edit these as needed in the configuration settings within the template.php file. 
+
+  - Default Template Directory: templates/[templatename].html
+  - Default Language Directory: languages/[locale]/lang_file.lang.php
+  - Default Cache directory: templates/cache/template.php (this is handled internally, simply create the directory and you're done!)
+
+* For languages, see the $templates->lang_load() documentation. A sample language file is provided. 
+   - you will need to explicitely call $templates->lang_load("filename") in order to load a new language file for use. 
+   - This was done so that larger applications don't require every language variable to be loaded for every page. This can result in lower memory usage and faster load times. 
 
 -------------------------------
 index.php
@@ -164,6 +173,17 @@ $templates->load("my_template");
     - Although this works, it's recommended to simply declare [@template:my_template] instead. 
     - The newer syntax parses the template on-the-fly and requires less PHP syntax. 
 
+----------------------------------------------------------
+LANGUAGE STRINGS:  
+----------------------------------------------------------
+Language strings follow the [@lang:lang_string] convention. 
+
+This template engine is packaged with a sample language file in languages/english/core.lang.php. To use this file, follow the convention below: 
+
+$templates = new template_engine("english"); // Substitute for locale desired
+$templates->lang_load("core"); // Loads the "core.lang.php" file for use. 
+
+You may load as many language files as required. It's recommended to separate different pages/functions so that only the necessary language files are loaded on each page. This improves performance and decreases load times. 
 
 ----------------------------------------------------------
 TEMPLATE CACHE: 
