@@ -1,6 +1,6 @@
 SIMPLE TEMPLATE ENGINE 
 LICENSE: GNU LGPL, Version 3 (message if you need a different license)
-VERSION: BETA (use at your own risk)
+VERSION: BETA (See GitHub Issues to track progress)
 
 
 ----------------------------------------------------------------------
@@ -9,7 +9,7 @@ ABOUT:
 
 This is an extremely lightweight template engine that allows your application’s HTML to be fully decoupled from your PHP. This template engine runs at near-native speeds thanks to its built-in compiler, making it much faster than similar interpreted template engines. Almost no performance overhead is present on a properly cached setup. 
 
- - Template engine is under 8KB (uncompressed)
+ - Template engine is under 7KB (uncompressed)
  - Can be installed with a single file
  - Supports native language variables. 
  - Standard variables are auto escaped for security, (can optionally be inserted raw)

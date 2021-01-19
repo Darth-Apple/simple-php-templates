@@ -1,14 +1,12 @@
 <?php 
-
 // LICENSE: GNU LGPL, Version 3. https://www.gnu.org/licenses/lgpl-3.0.en.html
 
 class template_engine {
     public $bindings = array(); 
     public $lang = array();
-    public $references = array(); // used for loops. 
     private $locale; 
 
-    private $cachePath = "templates/cache/";
+    private $cachePath = "templates/Cache/";
     private $templatePath = "templates/";
     private $enable_cache = TRUE; 
 
@@ -19,7 +17,7 @@ class template_engine {
     // Set a new variable. 
     public function set ($key, $value) {
         if ($key != null) { 
-            $this->bindings[$key] = $value;  
+            $this->bindings[$key] = $value; 
         } 
     }
     
@@ -38,23 +36,18 @@ class template_engine {
     public function parse_raw($tpl_contents) {
         $buffer = $this->compile($tpl_contents, false, true); 
         ob_start();
-        eval("?>".$buffer."<?php"); // Use EVAL to execute file's contents, since no local cache file is available.  
+        eval("?>".$buffer."<?php"); // We must EVAL() $buffer since no cache file exists.   
         return ob_get_clean(); 
     }
 
-    // Parses template and loads into new variable by template name. Useful for headers and footers. 
-    // Deprecated syntax. Use [@template:something] instead
+    // Renders template into standard variable with TPL name (Deprecated - use TPL variables instead)
     public function load($templateName) {
         $this->set($templateName, $this->parse($templateName)); 
     }
 
-    // Used for formatting IF/ELSE blocks. 
+    // Format IF/ELSE expression variables
     protected function format_expression($expr) {
         return preg_replace('/\$([A-Za-z0-9_]*)/', '$this->bindings["$1"]', $expr);
-    }
-
-    protected function throw_warning($warning) {
-        echo "<strong>Template Warning: </strong> $warning <br />"; 
     }
 
     // Compiles templates to vanilla PHP for fast performance. 
@@ -63,7 +56,7 @@ class template_engine {
         if (!$raw) {
             $contents = file_get_contents("Styles/default/Templates/" . $template . ".html");
         } else {
-            $contents = $template; // Raw templates pass the data directly 
+            $contents = $template; // Template contents (instead of filename)
         }
 
         //Replace [@else] first (avoid conflicts with standard variable syntax)
@@ -119,14 +112,10 @@ class template_engine {
                 // Convert our template engine's syntax to regular PHP syntax. 
                 if ($expr[1] == "elif" || $expr[1] == "else if") {
                     $ctrl = "elseif";
-                } else if ($expr[1] == "if") {
-                    $ctrl = "if"; 
                 } else {
-                    $this->throw_warning("Encountered invalid control for if/elif/else block: " . $expr[1]);
-                    return "";
+                    $ctrl = "if"; 
                 }
-                $expr = "<?php " . $ctrl . " ($formatted): ?>"; // . $expr[3] . $end;
-                return $expr; 
+                return "<?php " . $ctrl . " ($formatted): ?>";  
             }, 
             $contents
         );
@@ -141,7 +130,6 @@ class template_engine {
 
     // Renders an already compiled template, or compiles if necessary. 
     public function render ($template, $return = false) {
-
         $cacheFile = $this->cachePath . $template . ".php";
         $tplFile = $this->templatePath . $template . ".html";
 
@@ -158,9 +146,9 @@ class template_engine {
                     require($this->cachePath . $template . ".php");
                     return ob_get_clean(); 
                 } 
-                // Go ahead and echo contents. 
                 else {
-                    require($cacheFile);
+                    // Echo contents (render to browser)
+                    require($cacheFile); 
                 }
             } 
             // No valid cache file found. Go ahead and compile.  
