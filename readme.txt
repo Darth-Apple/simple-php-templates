@@ -142,18 +142,16 @@ EXAMPLE - index.php
 $templates = new template_engine(“english”); 
 $templates->load_lang(“core”); // Loads languages/english/core.lang.php
 
-// Set some variables
-$templates->set(“page_title”, “My Template Tester”);
-
 $people = array(
 	array(“name” => “Steve”, “Age” => 23),
 	array(“name” => “Emily”, “Age” => 21)
 );
-$templates->set(“people”, $people);
 
+// Set some variables
+$templates->set(“page_title”, “My Template Tester”);
+$templates->set(“people”, $people);
 $templates->set("true", true);
 $templates->set("false", false);
-
 $templates->set("html_var", "<b><u><i>FORMATTED TEXT</i></u></b>");
 
 $templates->render(“my_template_file”);

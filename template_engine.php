@@ -2,26 +2,26 @@
 // LICENSE: GNU LGPL, Version 3. https://www.gnu.org/licenses/lgpl-3.0.en.html
 
 class template_engine {
-    public $bindings = array(); 
+    public $bindings = array();
     public $lang = array();
-    private $locale; 
+    private $locale;
 
     private $cachePath = "templates/cache/";
     private $templatePath = "templates/";
-    private $enable_cache = TRUE; 
+    private $enable_cache = TRUE;
 
     public function __construct ($locale) {
         $this->locale = $locale;
-    } 
-
-    // Set a new variable. 
-    public function set ($key, $value) {
-        if ($key != null) { 
-            $this->bindings[$key] = $value; 
-        } 
     }
-    
-    // Merge existing language bindings with newly loaded language file. 
+
+    // Set a new variable.
+    public function set ($key, $value) {
+        if ($key != null) {
+            $this->bindings[$key] = $value;
+        }
+    }
+
+    // Load a new language file for use
     public function load_lang($langFile) {
         require "languages/".$this->locale."/".$langFile.".lang.php";
         $this->lang = $this->lang + $l;
@@ -29,37 +29,39 @@ class template_engine {
 
     // Renders template and RETURNS contents.
     public function parse($templateName) {
-        return $this->render($templateName, true); 
+        return $this->render($templateName, true);
     }
 
-    // Parses template contents directly and returns result. Does not cache.  
+    // Parses template contents directly and returns result. Does not cache.
     public function parse_raw($tpl_contents) {
-        $buffer = $this->compile($tpl_contents, false, true); 
-        ob_start();
-        eval("?>".$buffer."<?php"); // We must EVAL() $buffer since no cache file exists.   
+        $buffer = $this->compile($tpl_contents, false, true);
+        ob_start(); 
+        eval("?>".$buffer."<?php");
+        // Flush and return output buffer
         return ob_get_clean(); 
     }
 
-    // Renders template into standard variable with TPL name (Deprecated - use TPL variables instead)
+    //  Load entire template into [@templatename] variable (Deprecated - use [@template:tpl_name] instead)
     public function load($templateName) {
-        $this->set($templateName, $this->parse($templateName)); 
+        $this->set($templateName, $this->parse($templateName));
     }
 
-    // Format IF/ELSE expression variables
+    // Converts PHP variables to reference $this->bindings
     protected function format_expression($expr) {
         return preg_replace('/\$([A-Za-z0-9_]*)/', '$this->bindings["$1"]', $expr);
     }
 
-    // Compiles templates to vanilla PHP for fast performance. 
+    // Compiles templates to vanilla PHP for fast performance.
     public function compile($template, $cache=true, $raw = false) {
-        
+
+        // Load the template file if necessary ($raw templates pass contents directly instead)
         if (!$raw) {
             $contents = file_get_contents("Styles/default/Templates/" . $template . ".html");
         } else {
-            $contents = $template; // Template contents (instead of filename)
+            $contents = $template;
         }
 
-        //Replace [@else] first (avoid conflicts with standard variable syntax)
+        //Replace [@else] first (avoids conflicts with standard variable syntax)
         $contents = str_replace("[@else]", '<?php else: ?>', $contents);
         $contents = str_replace("[/if]", '<?php endif; ?>', $contents);
 
@@ -67,100 +69,114 @@ class template_engine {
         $contents = preg_replace('/\[@template:([a-zA-Z0-9_]+)\]/', '<?php echo $this->render("$1", true); ?>', $contents);
         $contents = preg_replace('/\[@template:@([a-zA-Z0-9_]+)\]/', '<?php echo $this->render($this->bindings[\'$1\'], true); ?>', $contents);
 
-        // Replace standard template and language variables. 
-        $contents = preg_replace("/\[@([a-zA-Z0-9_]+)\]/", '<?php echo htmlspecialchars($this->bindings[\'$1\']); ?>', $contents); 
-        $contents = preg_replace('/\[\$([a-zA-Z0-9_]+)\]/', '<?php echo $this->bindings[\'$1\']; ?>', $contents); 
+        // Replace standard template and language variables.
+        $contents = preg_replace("/\[@([a-zA-Z0-9_]+)\]/", '<?php echo htmlspecialchars($this->bindings[\'$1\']); ?>', $contents);
+        $contents = preg_replace('/\[\$([a-zA-Z0-9_]+)\]/', '<?php echo $this->bindings[\'$1\']; ?>', $contents);
         $contents = preg_replace('/\[@lang:([a-zA-Z0-9_]+)\]/', '<?php echo $this->lang[\'$1\']; ?>', $contents);
         
-        // Parsing loops - Callback version
+        // Convert [@loop] tags
         $contents = preg_replace_callback(
-            "#\[@loop: *(.*?) as (.*?)]((?:[^[]|\[(?!/?@loop:(.*?))|(?R))+)\[/loop]#", 
+            "#\[@loop: *(.*?) as (.*?)]((?:[^[]|\[(?!/?@loop:(.*?))|(?R))+)\[/loop]#",
             function ($loop) {
-                // First, we actually enclose with opening and closing tags. 
+                // Enclose loop with proper PHP foreach tags
                 $inner = preg_replace(
-                    "#\[@loop: *(.*?) as (.*?)]((?:[^[]|\[(?!/?@loop:(.*?))|(?R))+)\[/loop]#", 
-                    '<?php foreach(\$this->bindings[\'$1\'] as \$$2): ?> $3 <?php endforeach; ?>', 
+                    "#\[@loop: *(.*?) as (.*?)]((?:[^[]|\[(?!/?@loop:(.*?))|(?R))+)\[/loop]#",
+                    '<?php foreach(\$this->bindings[\'$1\'] as \$$2): ?> $3 <?php endforeach; ?>',
                     $loop[0]
                 );
 
-                $alias = $loop[2]; 
-                // Replaced autoescaped variables 
+                $alias = $loop[2];
+                // Replaced autoescaped variables
                 $inner = preg_replace(
                     '/\[@'.$alias.':([a-zA-Z0-9_]+)\]/',
-                    '<?php echo htmlspecialchars($'.$alias.'[\'$1\']); ?>', 
+                    '<?php echo htmlspecialchars($'.$alias.'[\'$1\']); ?>',
                     $inner
                 );
                 // Non-escaped variables
                 $inner = preg_replace(
                     '/\[\$'.$alias.':([a-zA-Z0-9_]+)\]/',
-                    '<?php echo $'.$alias.'[\'$1\']; ?>', 
+                    '<?php echo $'.$alias.'[\'$1\']; ?>',
                     $inner
                 );
-                return $inner;  // We're done with inner replacements. Return the result. 
-            }, 
+                return $inner;  // We're done with inner replacements. Return the result.
+            },
             $contents
         );
 
-        // Conditional expressions. 
+        // Conditional expressions.
         $contents = preg_replace_callback(
-            '#\[@(if|elif|else if): *(.*?)]#', 
+            '#\[@(if|elif|else if): *(.*?)]#',
             function ($expr) {
-
-                // We must format the variable to use the proper template-engine references. 
+                // Convert to PHP syntax, use $this->bindings for variables
                 $formatted = $this->format_expression($expr[2]);
+                $ctrl = "if";
 
-                // Convert our template engine's syntax to regular PHP syntax. 
                 if ($expr[1] == "elif" || $expr[1] == "else if") {
                     $ctrl = "elseif";
-                } else {
-                    $ctrl = "if"; 
                 }
-                return "<?php " . $ctrl . " ($formatted): ?>";  
-            }, 
+                return "<?php $ctrl ($formatted): ?>";
+            },
             $contents
         );
 
-        // Save or return results. 
-        if ($cache == true) {
-            file_put_contents($this->cachePath . $template . ".php", $contents); 
+        // Strip newlines and comments
+        $contents = preg_replace('~[\r\n]+~',"\r\n",trim($contents));
+        $contents = preg_replace('/<!--(.|\s)*?-->/','',$contents);
+
+        if ($cache) {
+            // Create cache directory if it doesn't exist
+            if (!is_dir($this->cachePath)) {
+                mkdir($this->cachePath, 0755, true);
+            }
+            // Disable cache if write fails.
+            if (!file_put_contents($this->cachePath . str_replace("/","_", "$template.php"), $contents)) {
+                $this->enable_cache = false; 
+            }
         } else {
             return $contents; 
         }
     }
 
-    // Renders an already compiled template, or compiles if necessary. 
+    // Renders an already compiled template, or compiles if necessary.
     public function render ($template, $return = false) {
-        $cacheFile = $this->cachePath . $template . ".php";
-        $tplFile = $this->templatePath . $template . ".html";
+        $cacheFile = $this->cachePath . str_replace("/","_", "$template.php");
+        $tplFile = $this->templatePath . "$template.html";
 
         if ($this->enable_cache) {
-            // Check for valid cache file. 
-            if (file_exists($this->cachePath . $template . ".php")) {
+            // Check for valid cache file.
+            if (file_exists($cacheFile)) {
 
                 if (filemtime($cacheFile) < filemtime($tplFile)) {
                     $this->compile($template);
                 }
-                // Check if we should return (rather than printing to browser)
-                if ($return == true) {
+
+                // Return template contents? 
+                if ($return) {
                     ob_start(); 
-                    require($this->cachePath . $template . ".php");
+                    require($cacheFile);
                     return ob_get_clean(); 
                 } 
                 else {
-                    // Echo contents (render to browser)
+                    // Render directly to browser
                     require($cacheFile); 
                 }
-            } 
-            // No valid cache file found. Go ahead and compile.  
+            }
+            // No valid cache file found. Must compile template.
             else {
-                $this->compile($template);
+                $this->compile($template); 
                 $this->render($template);
             }
         }
-        // If the cache isn't enabled, we must buffer the compilation and execute by alternative means. 
+        // Cache is disabled. Compile to buffer, execute from memory. 
         else {
             $buffer = $this->compile($template, false);
-            eval("?>".$buffer."<?php"); // We must render using EVAL, since no cache file exists. 
+            if ($return) { 
+                ob_start();
+                eval("?>".$buffer."<?php");
+                return ob_get_clean();
+            } else {
+                eval("?>".$buffer."<?php");
+            }
         }
     }
 }
