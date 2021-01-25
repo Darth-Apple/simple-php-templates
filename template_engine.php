@@ -5,6 +5,7 @@ class template_engine {
     public $bindings = array();
     public $lang = array();
     private $locale;
+    private $events = array(); 
 
     // SETTINGS
     private $cachePath = "templates/cache/";
@@ -21,9 +22,22 @@ class template_engine {
         $this->bindings[$key] = $value;
     }
 
+    // Runs functions defined within events. 
+    private function call_events ($key) {
+        if (isset($this->events[$key])) {
+            array_map(function ($event) { echo call_user_func($event);}, $this->events[$key]);
+        }
+    }
+
+    // Set a new event and bind to listener.  
+    public function set_event($key, $func) {
+        if(empty($this->events[$key])) $this->events[$key] = array($func);
+        else $this->events[$key][] = $func;
+    }
+
     // Load a new language file for use
     public function load_lang($langFile) {
-        require "languages/".$this->locale."/$langFile.lang.php";
+        require "Languages/".$this->locale."/$langFile.lang.php";
         $this->lang = $this->lang + $l;
     }
 
@@ -38,11 +52,6 @@ class template_engine {
         ob_start();
         eval("?>".$buffer."<?php");
         return ob_get_clean();
-    }
-
-    //  Load entire template into [@templatename] variable (Deprecated - use [@template:tpl_name] instead)
-    public function load($templateName) {
-        $this->set($templateName, $this->parse($templateName));
     }
 
     // Converts local variables to reference $this->bindings correctly.
@@ -60,12 +69,10 @@ class template_engine {
 
     // Compiles templates to vanilla PHP for fast performance.
     public function compile($template, $cache=true, $raw = false) {
-        // Load the template file (or template contents if $raw == true)
-
         if (!$raw) {
             $contents = file_get_contents("templates/" . $template . ".html");
         } else {
-            $contents = $template;
+            $contents = $template; // Pass contents of template rather than filename. 
         }
 
         //Replace [@else] first (avoids conflicts with standard variable syntax)
@@ -105,8 +112,7 @@ class template_engine {
         $contents = preg_replace_callback(
             '#\[@(if|elif|else if): *(.*?)]#',
             function ($expr) {
-                // Convert to PHP syntax, use $this->bindings for variables
-                $formatted = $this->format_expression($expr[2]);
+                $formatted = $this->format_expression($expr[2]); // Convert variable to bindings
                 $syntax = array(
                     "if" => "if",
                     "elif" => "elseif",
@@ -119,9 +125,10 @@ class template_engine {
             $contents
         );
 
-        // Template inheritance/backreference tags([@template:header]) or ([@template:@content])
+        // Listeners and template references/hooks [@template:val], [@template:@var], [@event:listener]
         $contents = preg_replace('/\[@template:([a-zA-Z0-9_]+)\]/', '<?php echo $this->render("$1", true); ?>', $contents);
         $contents = preg_replace('/\[@template:@([a-zA-Z0-9_]+)\]/', '<?php echo $this->render($this->bindings[\'$1\'], true); ?>', $contents);
+        $contents = preg_replace('/\[@listen:([a-zA-Z0-9_]+)\]/', '<?php $this->call_events("$1"); ?>', $contents);
 
         // Compile template variables (language vars, standard vars, and array vars)
         $contents = preg_replace('/\[@lang:([a-zA-Z0-9_]+)\]/', '<?php echo $this->lang[\'$1\']; ?>', $contents);
@@ -152,7 +159,7 @@ class template_engine {
     }
     
     // Renders a template. Compiles if necessary.
-    public function render($template, $silent = false) {
+    public function render($template, $silent = false, $extend = false, $block = "") {
         $cacheFile = $this->cachePath . str_replace("/","_", "$template.php");
         $tplFile = $this->templatePath . "$template.html";
         $cache_valid = file_exists($cacheFile) && (filemtime($cacheFile) >= filemtime($tplFile));

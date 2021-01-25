@@ -9,12 +9,12 @@ ABOUT:
 
 This is an extremely lightweight template engine that allows your application’s HTML to be fully decoupled from your PHP. This template engine runs at near-native speeds thanks to its built-in compiler, making it much faster than similar interpreted template engines. Almost no performance overhead is present on a properly cached setup. 
 
- - Template engine is under 7KB (uncompressed)
- - Can be installed with a single file
- - Supports native language variables. 
- - Standard variables are auto escaped for security, (can optionally be inserted raw)
- - If/elseif/else template conditionals are fully supported
- - built in foreach loops. 
+ - Single file template engine. Fits in under 8KB (uncompressed)
+ - Flexible template variables 
+ - Automatic auto-escaping (variables can also be inserted unescaped)
+ - Rich if/elseif/else blocks
+ - Event Listeners (specialized template hooks)
+ - Template loops 
  - Load nested templates with [@template:mytemplate] tags. 
  - Clean, simple syntax. 
 
@@ -40,23 +40,29 @@ INSTALLATION:
 TEMPLATE SYNTAX: 
 ------------------------------------------------------
 
-Variables: 
+VARIABLES: 
  - [@var] - autoescaped variable 
  - [$var] - unescaped variable. Use with care!
+
+ - [@array:key] - Access $array[$key] variable, escaped. 
+ - [$array:key] - Access $array[$key] (unescaped). 
+
+Currently, only one-dimensional dictionary-style arrays are supported. 
  
-Language variables:
+
+LANGUAGE VARIABLES: 
  - [@lang:var] - Language string. 
 
-Arrays:
-[@array:key] - Allows you to access a key within a template array variable. Set any template variable with an array to allow this. 
-[$array:key] - Same as above, but unescaped. 
 
-(This currently only supports one-dimensional dictionaries/arrays. A future release will allow support for two-dimensional arrays). 
+TEMPLATE EVENT LISTENERS (HOOKS): 
+ - [@listen:listener_name] 
 
- 
+  Event listeners are specialized hooks that allow dynamically-added functions to be executed at predefined locations in the template. Multiple events can be added for each listener. See corresponding documentation in the PHP Syntax section for more information. 
+
+
 LOOPS: 
-
   - [@loop: array as item] Inner loop data [@item:key] some more data [/loop]
+
 
 IF/ELSE IF/ELSE: 
 
@@ -64,32 +70,35 @@ IF/ELSE IF/ELSE:
     IF block
  [@elif: $variable == something_else]
     Else If Block
-  [@else]
+ [@else]
     ELSE block 
 [/if]
 
- * Notice how the [/if] only appears at the end of the entire if/elseif/else block. 
- * This is a concession that was made as a result of PHP's internal template conditional syntax. 
- * Even though [@else] has the same syntax as a variable "else", the engine will interpret it as a conditional directive as shown above. 
+  * The [/if] only appears once, at the end of all if/elif/else blocks. 
+  * Although [@else] has the same syntax as a variable "else", the engine will interpret it as a conditional directive as shown above. 
+  * You may nest If/Elif/Else blocks indefinitely. 
+  * Rich expressions may be used. Expressions are parsed directly to PHP, enabling full, advanced functionality. 
+
 
 TEMPLATES/INHERITANCE:
 
  This engine handles inheritance very differently than most template engines. Rather than defining blocks and sections, a simple tag is declared to load the contents of another template. 
 
-EXAMPLE: 
+  example: 
 
-[@template:header]
-    My content
-[@template:footer]
+  [@template:header]
+     My content
+  [@template:footer]
 
- - The above code will parse the header and footer templates in the locations listed above. 
- - The evaluation is all done at the final render. Any variables that are set up until the render will be accessible in both the footer and the header. 
+  * The above code will parse the header and footer templates in the locations listed above. 
+  * The evaluation is all done at the final render. Any variables that are set up until the render will be accessible in both the footer and the header. 
+
 
 TEMPLATE REFERENCES: 
 
-[@template:@somevar] 
+ - [@template:@somevar] 
 
- - Template references are similar to normal template substitution tags, except that a variable can contain the name of the template to be loaded. In this case, @somevar can be set like normal to contain ANY template name desired. The engine will substitute it as normal and parse the corresponding template as expected. 
+   Template references are similar to normal template substitution tags, except that a variable can contain the name of the template to be loaded. In this case, @somevar can be set like normal to contain ANY template name desired. The engine will substitute it as normal and parse the corresponding template as expected. 
 
  
 
@@ -121,10 +130,12 @@ $contents = $templates->parse_raw(file_get_contents("templates/my_page.html"));
     - Note that these aren't cached. It's recommended to use parse() or render() for most use cases. 
     - results ARE NOT echoed to browser. Capture results in return variable. 
 
-$templates->load("my_template"); 
-    - Deprecated. Use this to parse my_template.html and load it into [@my_template]
-    - Although this works, it's recommended to simply declare [@template:my_template] instead. 
-    - The newer syntax parses the template on-the-fly and requires less PHP syntax. 
+$templates->set_event("listener_name", "function_name"); 
+
+    - Calls "function_name" when [@event:listener_name] is encountered in a template. 
+    - You may add as many events to a listener as you would like. 
+    - Events are executed in the order for which they are added. 
+    - Your defined function should return (not echo) the output that should be injected into the template. 
 
 ----------------------------------------------------------
 LANGUAGE STRINGS:  
@@ -142,79 +153,22 @@ You may load as many language files as required. It's recommended to separate di
 TEMPLATE CACHE: 
 ----------------------------------------------------------
 
- - Because templates are compiled to PHP, the engine can very quickly parse pages. However, the compilation step itself is computationally expensive. This only happens once, on the very first page generation. The cached file is then stored in templates/cache/my_template.php
+ - This template engine compiles all templates to raw PHP, enabling near-native performance. This compilation step is only performed once (on the very first load of the template), and is stored in templates/cache/template_name.html. 
 
- - The cache is auto-generated on an as-needed basis. Any updates to the host template.html file will trigger a re-cache internally. As a result, the cache will always be up to date. 
+ - Template caches will always be up-to-date. The cache is auto-generated on an as-needed basis. Any updates to the host template.html file will trigger a re-cache internally. 
 
- - Because the cache prevents a costly recompilation on every page load, it is strongly recommended to leave the cache enabled. It can be disabled by setting the $enable_cache flag to "false" at the beginning of the template.php class file. 
+ - It is recommended to leave the cache enabled, as it saves the costly compilation step from needing to be performed on each template load. However, it can be disabled if needed via the $enable_cache variable in template_engine.php
 
  - parse_raw() never caches templates. Because of this, it is recommended to use parse() and render() when possible. 
 
 
-
-----------------------------------------------------------
-EXAMPLE - index.php
-----------------------------------------------------------
-<?php
-$templates = new template_engine(“english”); 
-$templates->load_lang(“core”); // Loads languages/english/core.lang.php
-
-$people = array(
-	array(“name” => “Steve”, “Age” => 23),
-	array(“name” => “Emily”, “Age” => 21)
-);
-
-// Set some variables
-$templates->set(“page_title”, “My Template Tester”);
-$templates->set(“people”, $people);
-$templates->set("true", true);
-$templates->set("false", false);
-$templates->set("html_var", "<b><u><i>FORMATTED TEXT</i></u></b>");
-
-$templates->render(“my_template_file”);
-?>
-
 ------------------------------------------------------------
-EXAMPLE - templates/my_template_file.html: 
+EXAMPLES: 
 ------------------------------------------------------------
 
-<html>
-<head>
-<title> [@page_title] </title>
-</head>
+Examples are provided with this template engine. To demonstrate, upload all files to your server, and run example_index.php. 
 
-<body>
-
-<strong>[@lang:title] - [@page_title] </strong><br />
-A language variable: [@lang:my_language_string] <br />
-
-<hr>
-<strong>TESTING LOOPS</strong><br />
-[@loop: people as person]
-    Person's name is [@person:name], age is [@person:age]<br />
-[/loop] <br />
-
-<hr>
-<strong> TESTING IF/ELSE statements </strong><br />
-[@if: $true == true]
-    In IF statement. Will display if true == true. 
-[@elif: $true == false]
-    In ELIF (else if) - won't display because true != false. 
-[@else]
-    In ELSE. Won't display unless one of the above conditions is modified. 
-[/if] 
-<br /><br />
-
-<hr>
-<strong>TESTING escaping</strong><br />
-Escaped: [@html_var] <br />
-Unescaped: [$html_var] <br />
-<br />
-
-</body>
-</html>
-
-
+The template file associated with this example is found within templates/example.html
 
 ----------------------------------------------------------
 LICENSE: 
