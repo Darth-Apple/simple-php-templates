@@ -32,17 +32,26 @@ INSTALLATION:
   - Default Language Directory: languages/[locale]/lang_file.lang.php
   - Default Cache directory: templates/cache/template.php (this is handled internally, simply create the directory and you're done!)
 
-   * For languages, see the $templates->lang_load() documentation. A sample language file is provided. 
-   - you will need to explicitely call $templates->lang_load("filename") in order to load a new language file for use. 
-   - This was done so that larger applications don't require every language variable to be loaded for every page. This can result in lower memory usage and faster load times. 
+  - For languages, see the $templates->lang_load() documentation. A sample language file is provided. 
+
+  - $hide_warnings can optionally be enabled to suppress PHP warnings that may occur from the use of unset template variables within templates. (Slight performance degradation may occur)
 
 ------------------------------------------------------
 TEMPLATE SYNTAX: 
 ------------------------------------------------------
 
+Variables: 
  - [@var] - autoescaped variable 
- - [$var] - unescaped variable. Use with care! 
+ - [$var] - unescaped variable. Use with care!
+ 
+Language variables:
  - [@lang:var] - Language string. 
+
+Arrays:
+[@array:key] - Allows you to access a key within a template array variable. Set any template variable with an array to allow this. 
+[$array:key] - Same as above, but unescaped. 
+
+(This currently only supports one-dimensional dictionaries/arrays. A future release will allow support for two-dimensional arrays). 
 
  
 LOOPS: 
@@ -73,8 +82,16 @@ EXAMPLE:
     My content
 [@template:footer]
 
- * The above code will parse the header and footer templates in the locations listed above. 
- * The evaluation is all done at the final render. Any variables that are set up until the render will be accessible in both the footer and the header. 
+ - The above code will parse the header and footer templates in the locations listed above. 
+ - The evaluation is all done at the final render. Any variables that are set up until the render will be accessible in both the footer and the header. 
+
+TEMPLATE REFERENCES: 
+
+[@template:@somevar] 
+
+ - Template references are similar to normal template substitution tags, except that a variable can contain the name of the template to be loaded. In this case, @somevar can be set like normal to contain ANY template name desired. The engine will substitute it as normal and parse the corresponding template as expected. 
+
+ 
 
 ------------------------------------------------------
 PHP SYNTAX: 

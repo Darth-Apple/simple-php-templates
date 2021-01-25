@@ -6,9 +6,11 @@ class template_engine {
     public $lang = array();
     private $locale;
 
+    // SETTINGS
     private $cachePath = "templates/cache/";
     private $templatePath = "templates/";
     private $enable_cache = TRUE;
+    private $hide_warnings = TRUE; 
 
     public function __construct ($locale) {
         $this->locale = $locale;
@@ -16,14 +18,12 @@ class template_engine {
 
     // Set a new variable.
     public function set ($key, $value) {
-        if ($key != null) {
-            $this->bindings[$key] = $value;
-        }
+        $this->bindings[$key] = $value;
     }
 
     // Load a new language file for use
     public function load_lang($langFile) {
-        require "languages/".$this->locale."/".$langFile.".lang.php";
+        require "languages/".$this->locale."/$langFile.lang.php";
         $this->lang = $this->lang + $l;
     }
 
@@ -35,10 +35,9 @@ class template_engine {
     // Parses template contents directly and returns result. Does not cache.
     public function parse_raw($tpl_contents) {
         $buffer = $this->compile($tpl_contents, false, true);
-        ob_start(); 
+        ob_start();
         eval("?>".$buffer."<?php");
-        // Flush and return output buffer
-        return ob_get_clean(); 
+        return ob_get_clean();
     }
 
     //  Load entire template into [@templatename] variable (Deprecated - use [@template:tpl_name] instead)
@@ -46,17 +45,25 @@ class template_engine {
         $this->set($templateName, $this->parse($templateName));
     }
 
-    // Converts PHP variables to reference $this->bindings
-    protected function format_expression($expr) {
+    // Converts local variables to reference $this->bindings correctly.
+    private function format_expression($expr) {
         return preg_replace('/\$([A-Za-z0-9_]*)/', '$this->bindings["$1"]', $expr);
+    }
+
+    // Fetch bindings and lang strings safely (hides PHP warnings on unset template variables)
+    private function get_var($key, $var) {
+        if (isset($this->$var[$key])) {
+            return $this->$var[$key];
+        }
+        return "";
     }
 
     // Compiles templates to vanilla PHP for fast performance.
     public function compile($template, $cache=true, $raw = false) {
+        // Load the template file (or template contents if $raw == true)
 
-        // Load the template file if necessary ($raw templates pass contents directly instead)
         if (!$raw) {
-            $contents = file_get_contents("Styles/default/Templates/" . $template . ".html");
+            $contents = file_get_contents("templates/" . $template . ".html");
         } else {
             $contents = $template;
         }
@@ -64,16 +71,8 @@ class template_engine {
         //Replace [@else] first (avoids conflicts with standard variable syntax)
         $contents = str_replace("[@else]", '<?php else: ?>', $contents);
         $contents = str_replace("[/if]", '<?php endif; ?>', $contents);
+        $contents = str_replace("[/endif]", '<?php endif; ?>', $contents); 
 
-        // Template inheritance/backreference tags([@template:header]) or ([@template:@content])
-        $contents = preg_replace('/\[@template:([a-zA-Z0-9_]+)\]/', '<?php echo $this->render("$1", true); ?>', $contents);
-        $contents = preg_replace('/\[@template:@([a-zA-Z0-9_]+)\]/', '<?php echo $this->render($this->bindings[\'$1\'], true); ?>', $contents);
-
-        // Replace standard template and language variables.
-        $contents = preg_replace("/\[@([a-zA-Z0-9_]+)\]/", '<?php echo htmlspecialchars($this->bindings[\'$1\']); ?>', $contents);
-        $contents = preg_replace('/\[\$([a-zA-Z0-9_]+)\]/', '<?php echo $this->bindings[\'$1\']; ?>', $contents);
-        $contents = preg_replace('/\[@lang:([a-zA-Z0-9_]+)\]/', '<?php echo $this->lang[\'$1\']; ?>', $contents);
-        
         // Convert [@loop] tags
         $contents = preg_replace_callback(
             "#\[@loop: *(.*?) as (.*?)]((?:[^[]|\[(?!/?@loop:(.*?))|(?R))+)\[/loop]#",
@@ -84,15 +83,14 @@ class template_engine {
                     '<?php foreach(\$this->bindings[\'$1\'] as \$$2): ?> $3 <?php endforeach; ?>',
                     $loop[0]
                 );
-
-                $alias = $loop[2];
                 // Replaced autoescaped variables
+                $alias = $loop[2];
                 $inner = preg_replace(
                     '/\[@'.$alias.':([a-zA-Z0-9_]+)\]/',
                     '<?php echo htmlspecialchars($'.$alias.'[\'$1\']); ?>',
                     $inner
                 );
-                // Non-escaped variables
+                // Replace non-escaped variables
                 $inner = preg_replace(
                     '/\[\$'.$alias.':([a-zA-Z0-9_]+)\]/',
                     '<?php echo $'.$alias.'[\'$1\']; ?>',
@@ -103,80 +101,83 @@ class template_engine {
             $contents
         );
 
-        // Conditional expressions.
+        // Parse conditional expressions (if/elif/else)
         $contents = preg_replace_callback(
             '#\[@(if|elif|else if): *(.*?)]#',
             function ($expr) {
                 // Convert to PHP syntax, use $this->bindings for variables
                 $formatted = $this->format_expression($expr[2]);
-                $ctrl = "if";
-
-                if ($expr[1] == "elif" || $expr[1] == "else if") {
-                    $ctrl = "elseif";
-                }
+                $syntax = array(
+                    "if" => "if",
+                    "elif" => "elseif",
+                    "elseif" => "elseif",
+                    "else if" => "elseif"
+                );
+                $ctrl = $syntax[$expr[1]];
                 return "<?php $ctrl ($formatted): ?>";
             },
             $contents
         );
 
-        // Strip newlines and comments
-        $contents = preg_replace('~[\r\n]+~',"\r\n",trim($contents));
-        $contents = preg_replace('/<!--(.|\s)*?-->/','',$contents);
+        // Template inheritance/backreference tags([@template:header]) or ([@template:@content])
+        $contents = preg_replace('/\[@template:([a-zA-Z0-9_]+)\]/', '<?php echo $this->render("$1", true); ?>', $contents);
+        $contents = preg_replace('/\[@template:@([a-zA-Z0-9_]+)\]/', '<?php echo $this->render($this->bindings[\'$1\'], true); ?>', $contents);
+
+        // Compile template variables (language vars, standard vars, and array vars)
+        $contents = preg_replace('/\[@lang:([a-zA-Z0-9_]+)\]/', '<?php echo $this->lang[\'$1\']; ?>', $contents);
+        $contents = preg_replace("/\[@([a-zA-Z0-9_]+):([a-zA-Z0-9_]+)\]/", '<?php echo htmlspecialchars($this->bindings[\'$1\'][\'$2\']); ?>', $contents);
+        $contents = preg_replace('/\[\$([a-zA-Z0-9_]+):([a-zA-Z0-9_]+)\]/', '<?php echo $this->bindings[\'$1\'][\'$2\']; ?>', $contents);
+        $contents = preg_replace("/\[@([a-zA-Z0-9_]+)\]/", '<?php echo htmlspecialchars($this->bindings[\'$1\']); ?>', $contents);
+        $contents = preg_replace('/\[\$([a-zA-Z0-9_]+)\]/', '<?php echo $this->bindings[\'$1\']; ?>', $contents);
+
+        // Strip HTML comments and whitespace
+        $contents = preg_replace("~[\r\n]+~","\r\n",trim($contents));
+        $contents = preg_replace("/<!--(.|\s)*?-->/",'',$contents);
+
+        // Strip warnings (if enabled)
+        if ($this->hide_warnings) {
+            $contents = preg_replace ('/\$this->bindings\[\'([A-Za-z0-9_]*)\'\]/', '$this->get_var(\'$1\', \'bindings\')', $contents);
+            $contents = preg_replace ('/\$this->lang\[\'([A-Za-z0-9_]*)\'\]/', '$this->get_var(\'$1\', \'lang\')', $contents);
+        }
 
         if ($cache) {
-            // Create cache directory if it doesn't exist
             if (!is_dir($this->cachePath)) {
-                mkdir($this->cachePath, 0755, true);
+                mkdir($this->cachePath, 0755, true); // Create cache directory (if missing)
             }
-            // Disable cache if write fails.
             if (!file_put_contents($this->cachePath . str_replace("/","_", "$template.php"), $contents)) {
-                $this->enable_cache = false; 
+                $this->enable_cache = false;  // Don't recursively re-attempt on write fail
             }
-        } else {
-            return $contents; 
         }
+        return $contents;
     }
-
-    // Renders an already compiled template, or compiles if necessary.
-    public function render ($template, $return = false) {
+    
+    // Renders a template. Compiles if necessary.
+    public function render($template, $silent = false) {
         $cacheFile = $this->cachePath . str_replace("/","_", "$template.php");
         $tplFile = $this->templatePath . "$template.html";
+        $cache_valid = file_exists($cacheFile) && (filemtime($cacheFile) >= filemtime($tplFile));
+        ob_start();
 
+        // Execute cache file (if exists and valid)
         if ($this->enable_cache) {
-            // Check for valid cache file.
-            if (file_exists($cacheFile)) {
-
-                if (filemtime($cacheFile) < filemtime($tplFile)) {
-                    $this->compile($template);
-                }
-
-                // Return template contents? 
-                if ($return) {
-                    ob_start(); 
-                    require($cacheFile);
-                    return ob_get_clean(); 
-                } 
-                else {
-                    // Render directly to browser
-                    require($cacheFile); 
-                }
-            }
-            // No valid cache file found. Must compile template.
-            else {
-                $this->compile($template); 
-                $this->render($template);
-            }
-        }
-        // Cache is disabled. Compile to buffer, execute from memory. 
-        else {
-            $buffer = $this->compile($template, false);
-            if ($return) { 
-                ob_start();
-                eval("?>".$buffer."<?php");
-                return ob_get_clean();
+            if ($cache_valid) {
+                require ($cacheFile);
             } else {
-                eval("?>".$buffer."<?php");
+                // No valid cache file. Create, re-render, and return to outside caller.
+                $this->compile($template);
+                return $this->render($template, $silent);
             }
         }
+        else {
+            // Cache is disabled. Buffer from memory
+            $buffer = $this->compile($template, false);
+            eval("?>".$buffer."<?php");
+        }
+
+        $out = ob_get_clean();
+        if (!$silent) {
+            echo $out; 
+        }
+        return $out;
     }
 }
