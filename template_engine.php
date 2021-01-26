@@ -11,7 +11,7 @@ class template_engine {
     private $cachePath = "templates/cache/";
     private $templatePath = "templates/";
     private $enable_cache = TRUE;
-    private $hide_warnings = TRUE; 
+    private $hide_warnings = TRUE;
 
     public function __construct ($locale) {
         $this->locale = $locale;
@@ -22,22 +22,27 @@ class template_engine {
         $this->bindings[$key] = $value;
     }
 
-    // Runs functions defined within events. 
-    private function call_events ($key) {
-        if (isset($this->events[$key])) {
-            array_map(function ($event) { echo call_user_func($event);}, $this->events[$key]);
-        }
+    // Set a new event and bind to listener.
+    public function set_event($key, $func, $args=null) {
+
+        // Format arguments (if present) for call_user_func_array()
+        $func = (!is_array($args) && ($args !== null)) ? array($func,array($args)) : $func;
+        $func = (is_array($args)) ? array($func,$args) : $func;
+
+        if(empty($this->events[$key])) $this->events[$key] = array($func);  // New listener
+        else $this->events[$key][] = $func;  // Append to listener
     }
 
-    // Set a new event and bind to listener.  
-    public function set_event($key, $func) {
-        if(empty($this->events[$key])) $this->events[$key] = array($func);
-        else $this->events[$key][] = $func;
+    // Execute/call events/listeners
+    private function call_events ($key) {
+        if (isset($this->events[$key])) {
+            array_map(function ($event) { echo (is_array($event)) ? call_user_func_array($event[0],$event[1]) : call_user_func($event);}, $this->events[$key]);       
+        }
     }
 
     // Load a new language file for use
     public function load_lang($langFile) {
-        require "Languages/".$this->locale."/$langFile.lang.php";
+        require "languages/".$this->locale."/$langFile.lang.php";
         $this->lang = $this->lang + $l;
     }
 
@@ -48,7 +53,7 @@ class template_engine {
 
     // Parses template contents directly and returns result. Does not cache.
     public function parse_raw($tpl_contents) {
-        $buffer = $this->compile($tpl_contents, false, true);
+        $buffer = $this->compile($tpl_contents,0,1);
         ob_start();
         eval("?>".$buffer."<?php");
         return ob_get_clean();
@@ -70,15 +75,15 @@ class template_engine {
     // Compiles templates to vanilla PHP for fast performance.
     public function compile($template, $cache=true, $raw = false) {
         if (!$raw) {
-            $contents = file_get_contents("templates/" . $template . ".html");
+            $contents = file_get_contents($this->templatePath . $template . ".html");
         } else {
-            $contents = $template; // Pass contents of template rather than filename. 
+            $contents = $template; // Pass contents of template rather than filename.
         }
 
         //Replace [@else] first (avoids conflicts with standard variable syntax)
         $contents = str_replace("[@else]", '<?php else: ?>', $contents);
         $contents = str_replace("[/if]", '<?php endif; ?>', $contents);
-        $contents = str_replace("[/endif]", '<?php endif; ?>', $contents); 
+        $contents = str_replace("[/endif]", '<?php endif; ?>', $contents);
 
         // Convert [@loop] tags
         $contents = preg_replace_callback(
@@ -159,7 +164,7 @@ class template_engine {
     }
     
     // Renders a template. Compiles if necessary.
-    public function render($template, $silent = false, $extend = false, $block = "") {
+    public function render($template, $silent = false) {
         $cacheFile = $this->cachePath . str_replace("/","_", "$template.php");
         $tplFile = $this->templatePath . "$template.html";
         $cache_valid = file_exists($cacheFile) && (filemtime($cacheFile) >= filemtime($tplFile));

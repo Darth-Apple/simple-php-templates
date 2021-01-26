@@ -20,6 +20,7 @@ This is an extremely lightweight template engine that allows your application’
 
 This engine is ideal for small, simple projects that need a capable, secure, and fast template engine. Installation is quick and easy, and the overhead is minimal.
 
+
 ----------------------------------------------------------------------
 INSTALLATION: 
 ----------------------------------------------------------------------
@@ -55,7 +56,7 @@ LANGUAGE VARIABLES:
 
 
 TEMPLATE EVENT LISTENERS (HOOKS): 
- - [@listen:listener_name] 
+ - [@listen:listener_name]   - Listen for event name
 
   Event listeners are specialized hooks that allow dynamically-added functions to be executed at predefined locations in the template. Multiple events can be added for each listener. See corresponding documentation in the PHP Syntax section for more information. 
 
@@ -130,12 +131,22 @@ $contents = $templates->parse_raw(file_get_contents("templates/my_page.html"));
     - Note that these aren't cached. It's recommended to use parse() or render() for most use cases. 
     - results ARE NOT echoed to browser. Capture results in return variable. 
 
-$templates->set_event("listener_name", "function_name"); 
+
+LISTENERS: 
+
+$templates->set_event("listener_name", "function_name");
+
+(OR) - Listeners with arguments: 
+
+$templates->set_event("listener_name", "function_name", $single_argument);
+$templates->set_event("listener_name", "function_name", array($arg1, $arg2, ...)); 
 
     - Calls "function_name" when [@event:listener_name] is encountered in a template. 
     - You may add as many events to a listener as you would like. 
     - Events are executed in the order for which they are added. 
     - Your defined function should return (not echo) the output that should be injected into the template. 
+    - Arguments may be passed if desired. You may pass none, or pass many (as needed)
+    - If using multiple arguments, pass an array of arguments (as shown above)
 
 ----------------------------------------------------------
 LANGUAGE STRINGS:  
@@ -169,6 +180,7 @@ EXAMPLES:
 Examples are provided with this template engine. To demonstrate, upload all files to your server, and run example_index.php. 
 
 The template file associated with this example is found within templates/example.html
+
 
 ----------------------------------------------------------
 LICENSE: 
