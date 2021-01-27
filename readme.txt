@@ -11,7 +11,7 @@ ABOUT:
 
 This is an extremely lightweight template engine that allows your application’s HTML to be fully decoupled from your PHP. This template engine runs at near-native speeds thanks to its built-in compiler, making it much faster than similar interpreted template engines. Almost no performance overhead is present on a properly cached setup. 
 
- - Single file template engine. Fits in under 8KB (uncompressed)
+ - Single file template engine. Fits in under 10KB (uncompressed)
  - Flexible template variables 
  - Automatic auto-escaping (variables can also be inserted unescaped)
  - If/elseif/else expressions (with rich evaluation)
@@ -106,20 +106,17 @@ TEMPLATE REFERENCES:
 
 BLOCKS: 
 
-Blocks allow for more advanced template hierarchies to be implemented in greater detail. Blocks are defined within a child template. Inside of this template, a special [@extend:tplname] tag is defined in the opening line. This determines which page the child template will "extend"
+    Blocks allow for more advanced template hierarchies to be implemented in greater detail. Each block is a "container" that will be injected at its corresponding [@yield] variable in the parent template. Child templates must define a special [@extend:tplname] tag in the opening line, which determines which template will serve as the parent. 
 
 CHILD TEMPLATE: 
   [@extend:parent_template]
   Some content outside of blocks<br />
-
   [@block:body]
       <strong>INSIDE BODY</strong><br />
   [/block]
-
   After body<br />
 
 PARENT TEMPLATE: 
-
   <strong>Before block</strong><br />
   [@yield:body] <br />
   <strong>After block</strong
