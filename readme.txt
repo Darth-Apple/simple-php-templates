@@ -2,6 +2,8 @@ SIMPLE TEMPLATE ENGINE
 LICENSE: GNU LGPL, Version 3 (message if you need a different license)
 VERSION: BETA (See GitHub Issues to track progress)
 
+Complete Documentation: https://github.com/Darth-Apple/simple-php-templates/wiki
+(Please refer to the above for more detailed instructions and information) 
 
 ----------------------------------------------------------------------
 ABOUT: 
@@ -12,10 +14,11 @@ This is an extremely lightweight template engine that allows your application’
  - Single file template engine. Fits in under 8KB (uncompressed)
  - Flexible template variables 
  - Automatic auto-escaping (variables can also be inserted unescaped)
- - Rich if/elseif/else blocks
+ - If/elseif/else expressions (with rich evaluation)
  - Event Listeners (specialized template hooks)
  - Template loops 
  - Load nested templates with [@template:mytemplate] tags. 
+ - Blocks (standard template extensions/inheritance)
  - Clean, simple syntax. 
 
 This engine is ideal for small, simple projects that need a capable, secure, and fast template engine. Installation is quick and easy, and the overhead is minimal.
@@ -83,7 +86,7 @@ IF/ELSE IF/ELSE:
 
 TEMPLATES/INHERITANCE:
 
- This engine handles inheritance very differently than most template engines. Rather than defining blocks and sections, a simple tag is declared to load the contents of another template. 
+ This engine handles inheritance through a variety of methods, some of which are different than the approaches of other templates. One common construct that is often used within hierarchies is the basic "template" tag. This loads and parses another template in-place within the parent template. 
 
   example: 
 
@@ -101,7 +104,34 @@ TEMPLATE REFERENCES:
 
    Template references are similar to normal template substitution tags, except that a variable can contain the name of the template to be loaded. In this case, @somevar can be set like normal to contain ANY template name desired. The engine will substitute it as normal and parse the corresponding template as expected. 
 
- 
+BLOCKS: 
+
+Blocks allow for more advanced template hierarchies to be implemented in greater detail. Blocks are defined within a child template. Inside of this template, a special [@extend:tplname] tag is defined in the opening line. This determines which page the child template will "extend"
+
+CHILD TEMPLATE: 
+  [@extend:parent_template]
+  Some content outside of blocks<br />
+
+  [@block:body]
+      <strong>INSIDE BODY</strong><br />
+  [/block]
+
+  After body<br />
+
+PARENT TEMPLATE: 
+
+  <strong>Before block</strong><br />
+  [@yield:body] <br />
+  <strong>After block</strong
+
+
+ As you can see, the special [@yield:body] template renders the *child template*'s contents, as defined by the block titled "body". 
+
+  - When parsing, make sure to render the child template, not the parent template! 
+  - You may define as many blocks as you'd like in your child template. The engine will automatically render each block at its respective [@yield] location within the parent template. 
+  - For child/extended templates, any content that is not within a block will not be rendered. 
+  - Any block that is missing a corresponding [@yield] in the parent template will not be rendered. 
+
 
 ------------------------------------------------------
 PHP SYNTAX: 

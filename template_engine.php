@@ -1,11 +1,11 @@
-<?php 
+<?php
 // LICENSE: GNU LGPL, Version 3. https://www.gnu.org/licenses/lgpl-3.0.en.html
 
 class template_engine {
     public $bindings = array();
     public $lang = array();
     private $locale;
-    private $events = array(); 
+    private $events = array();
 
     // SETTINGS
     private $cachePath = "templates/cache/";
@@ -13,7 +13,7 @@ class template_engine {
     private $enable_cache = TRUE;
     private $hide_warnings = TRUE;
 
-    public function __construct ($locale) {
+    public function __construct ($locale="") {
         $this->locale = $locale;
     }
 
@@ -25,7 +25,7 @@ class template_engine {
     // Set a new event and bind to listener.
     public function set_event($key, $func, $args=null) {
 
-        // Format arguments (if present) for call_user_func_array()
+        // Format arguments (if present) for event
         $func = (!is_array($args) && ($args !== null)) ? array($func,array($args)) : $func;
         $func = (is_array($args)) ? array($func,$args) : $func;
 
@@ -36,7 +36,7 @@ class template_engine {
     // Execute/call events/listeners
     private function call_events ($key) {
         if (isset($this->events[$key])) {
-            array_map(function ($event) { echo (is_array($event)) ? call_user_func_array($event[0],$event[1]) : call_user_func($event);}, $this->events[$key]);       
+            array_map(function ($event) { echo (is_array($event)) ? call_user_func_array($event[0],$event[1]) : call_user_func($event);}, $this->events[$key]);
         }
     }
 
@@ -74,10 +74,21 @@ class template_engine {
 
     // Compiles templates to vanilla PHP for fast performance.
     public function compile($template, $cache=true, $raw = false) {
+        $extend = false;
         if (!$raw) {
             $contents = file_get_contents($this->templatePath . $template . ".html");
         } else {
             $contents = $template; // Pass contents of template rather than filename.
+        }
+
+        // Strip HTML comments and whitespace
+        $contents = preg_replace("~[\r\n]+~","\r\n",trim($contents));
+        $contents = preg_replace("/<!--(.|\s)*?-->/",'',$contents);
+        $pattern = '/\[@extend:([a-zA-Z0-9_]+)\]/';
+
+        if (preg_match($pattern, $contents, $matches)) {
+            $extend = $matches[1];
+            $contents = preg_replace($pattern, '', $contents);
         }
 
         //Replace [@else] first (avoids conflicts with standard variable syntax)
@@ -129,10 +140,30 @@ class template_engine {
             },
             $contents
         );
+        // Process template blocks (yields)
+        $contents = preg_replace('/\[@yield:([a-zA-Z0-9_]+)\]/', '<?php echo $this->render("$tpl_child",1,"$1"); ?>', $contents);
+        if ($extend) {
+            $contents = preg_replace_callback(
+                '#\[@block: *(.*?)]((?:[^[]|\[(?!/?@block:(.*?))|(?R))+)\[/block]#',
+                function ($block) {
+                    $name = htmlspecialchars($block[1]);
+                    $inner = $block[2];
+                    $htm = '<?php endif; ?>'."\n".'<?php if(isset($tpl_block) && $tpl_block == "'.$name.'"): ?>';
+                    $htm .= "\n".$inner."\n".'<?php endif; ?>'."\n";
+                    $htm .= '<?php if (isset($tpl_block) && $tpl_block == "main"): ?>'."\n";
+                    return $htm;
+                },
+                $contents
+            );
+        }
+        // Unpack non-extended blocks for standard render.
+        else {
+            $contents = preg_replace('#\[@block: *(.*?)]((?:[^[]|\[(?!/?@block:(.*?))|(?R))+)\[/block]#', "\n$2\n", $contents);
+        }
 
         // Listeners and template references/hooks [@template:val], [@template:@var], [@event:listener]
         $contents = preg_replace('/\[@template:([a-zA-Z0-9_]+)\]/', '<?php echo $this->render("$1", true); ?>', $contents);
-        $contents = preg_replace('/\[@template:@([a-zA-Z0-9_]+)\]/', '<?php echo $this->render($this->bindings[\'$1\'], true); ?>', $contents);
+        $contents = preg_replace('/\[@template:@([a-zA-Z0-9_]+)\]/', '<?php echo $this->render(preg_replace("/[^a-zA-Z0-9]/","",$this->bindings[\'$1\']),true); ?>', $contents);
         $contents = preg_replace('/\[@listen:([a-zA-Z0-9_]+)\]/', '<?php $this->call_events("$1"); ?>', $contents);
 
         // Compile template variables (language vars, standard vars, and array vars)
@@ -142,14 +173,16 @@ class template_engine {
         $contents = preg_replace("/\[@([a-zA-Z0-9_]+)\]/", '<?php echo htmlspecialchars($this->bindings[\'$1\']); ?>', $contents);
         $contents = preg_replace('/\[\$([a-zA-Z0-9_]+)\]/', '<?php echo $this->bindings[\'$1\']; ?>', $contents);
 
-        // Strip HTML comments and whitespace
-        $contents = preg_replace("~[\r\n]+~","\r\n",trim($contents));
-        $contents = preg_replace("/<!--(.|\s)*?-->/",'',$contents);
-
         // Strip warnings (if enabled)
         if ($this->hide_warnings) {
-            $contents = preg_replace ('/\$this->bindings\[\'([A-Za-z0-9_]*)\'\]/', '$this->get_var(\'$1\', \'bindings\')', $contents);
-            $contents = preg_replace ('/\$this->lang\[\'([A-Za-z0-9_]*)\'\]/', '$this->get_var(\'$1\', \'lang\')', $contents);
+            $contents = preg_replace ('/\$this->bindings\[\'([A-Za-z0-9_]*)\'\]/', '$this->get_var(\'$1\',\'bindings\')', $contents);
+            $contents = preg_replace ('/\$this->lang\[\'([A-Za-z0-9_]*)\'\]/', '$this->get_var(\'$1\',\'lang\')', $contents);
+        }
+
+        // Add opening/closing __main__ block tags for child templates
+        if ($extend) {
+            $open = '<?php if(!isset($tpl_block)) {echo $this->render("'.$extend.'",1,"main","'.$template.'");} ?>';
+            $contents = $open."\n".'<?php if(isset($tpl_block) && $tpl_block == "main"): ?>'."\n".$contents."\n".'<?php endif; ?>';
         }
 
         if ($cache) {
@@ -164,9 +197,12 @@ class template_engine {
     }
     
     // Renders a template. Compiles if necessary.
-    public function render($template, $silent = false) {
-        $cacheFile = $this->cachePath . str_replace("/","_", "$template.php");
+    public function render($template, $silent = false, $tpl_block = null, $tpl_child = null) {
         $tplFile = $this->templatePath . "$template.html";
+        if (!file_exists($tplFile)) {
+            return;
+        }
+        $cacheFile = $this->cachePath . str_replace("/","_", "$template.php");
         $cache_valid = file_exists($cacheFile) && (filemtime($cacheFile) >= filemtime($tplFile));
         ob_start();
 
@@ -177,7 +213,7 @@ class template_engine {
             } else {
                 // No valid cache file. Create, re-render, and return to outside caller.
                 $this->compile($template);
-                return $this->render($template, $silent);
+                return $this->render($template, $silent, $tpl_block, $tpl_child);
             }
         }
         else {
@@ -188,8 +224,9 @@ class template_engine {
 
         $out = ob_get_clean();
         if (!$silent) {
-            echo $out; 
+            echo $out;
         }
         return $out;
     }
 }
+
