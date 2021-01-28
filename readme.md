@@ -24,6 +24,10 @@ This engine is packaged entirely within a single file. Installation is quick and
 
 https://github.com/Darth-Apple/simple-php-templates/wiki
 
+## How it Works
+
+This bedrock of this template engine is its built-in compiler. All templates are converted to raw PHP and are cached/executed on-the-fly. This enables the template syntax to extend various features that already exist within the PHP language without adding a large footprint or overhead. This page describes the technical underpinnings in detail: https://github.com/Darth-Apple/simple-php-templates/wiki/How-It-Works
+
 ## About: 
 
 * Version: Beta 2
